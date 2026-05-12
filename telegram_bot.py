@@ -9,8 +9,8 @@ from openai import OpenAI
 
 TELEGRAM_BOT_TOKEN = "8670898275:AAG06HceWzHxJk2JYdS4WmsbydJ-m5ZtR6U"
 OPENAI_API_KEY = "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"
-REPORT_HOUR = 5
-REPORT_MINUTE = 50
+REPORT_HOUR = 6
+REPORT_MINUTE = 10
 CHAT_ID_FILE = "chat_id.json"
 MESSAGES_FILE = "daily_messages.json"
 
@@ -119,6 +119,7 @@ def main():
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     scheduler = AsyncIOScheduler()
     scheduler.add_job(scheduled_report, trigger="cron", hour=REPORT_HOUR, minute=REPORT_MINUTE, args=[app])
+    scheduler.start()
     logger.info("Бот запущен!")
     app.run_polling(allowed_updates=["message"])
 
