@@ -1,3 +1,4 @@
+import os
 import logging
 import json
 from datetime import datetime, date, time
@@ -6,10 +7,10 @@ from telegram import Update
 from telegram.ext import Application, MessageHandler, CommandHandler, ContextTypes, filters
 from openai import OpenAI
 
-TELEGRAM_BOT_TOKEN = "8670898275:AAG06HceWzHxJk2JYdS4WmsbydJ-m5ZtR6U"
+TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-REPORT_HOUR = 6
-REPORT_MINUTE = 30
+REPORT_HOUR = 23
+REPORT_MINUTE = 00
 MAIN_CHAT_FILE = "main_chat.json"
 MESSAGES_FILE = "daily_messages.json"
 
