@@ -122,7 +122,7 @@ def main():
     job_queue = app.job_queue
     job_queue.run_daily(
         scheduled_report,
-        time=datetime.time(hour=REPORT_HOUR, minute=REPORT_MINUTE, second=0),
+        time=time(hour=REPORT_HOUR, minute=REPORT_MINUTE, second=0),
     )
 
     logger.info("Бот запущен!")
