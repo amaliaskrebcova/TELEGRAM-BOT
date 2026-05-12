@@ -1,5 +1,4 @@
 import logging
-import datetime
 import json
 from datetime import datetime, date
 from pathlib import Path
@@ -11,7 +10,7 @@ from openai import OpenAI
 TELEGRAM_BOT_TOKEN = "8670898275:AAG06HceWzHxJk2JYdS4WmsbydJ-m5ZtR6U"
 OPENAI_API_KEY = "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"
 REPORT_HOUR = 6
-REPORT_MINUTE = 15
+REPORT_MINUTE = 20
 CHAT_ID_FILE = "chat_id.json"
 MESSAGES_FILE = "daily_messages.json"
 
@@ -123,7 +122,7 @@ def main():
     job_queue = app.job_queue
     job_queue.run_daily(
         scheduled_report,
-        time=datetime.time(hour=REPORT_HOUR, minute=REPORT_MINUTE),
+        time=datetime.time(hour=REPORT_HOUR, minute=REPORT_MINUTE, second=0),
     )
 
     logger.info("Бот запущен!")
