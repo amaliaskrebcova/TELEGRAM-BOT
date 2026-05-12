@@ -1,3 +1,4 @@
+import os
 import logging
 import json
 from datetime import datetime, date, time
@@ -6,8 +7,8 @@ from telegram import Update
 from telegram.ext import Application, MessageHandler, CommandHandler, ContextTypes, filters
 from openai import OpenAI
 
-TELEGRAM_BOT_TOKEN = "867089822275:AAG06HceWzHxJk2JYdS4WmsbydJ-m5ZtR6U"
-OPENAI_API_KEY = "sk-proj-kPJfwK-LENvE8iuJWxvXXz1ClLVSDH2VVJbcNowKVqf3S222YkljcGUrkZd6TPoVpfmahn-7XgIXT3BlbkFJH2lh-WdEQTMVnVd7knaX276fdGIpL7gB0doU4B6H_u_K3lBEdC3LtSLpTSA1xjiToaRYvWTjAA"
+TELEGRAM_BOT_TOKEN = "8670898275:AAG06HceWzHxJk2JYdS4WmsbydJ-m5ZtR6U"
+OPENAI_API_KEY = "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"
 REPORT_HOUR = 23
 REPORT_MINUTE = 00
 MAIN_CHAT_FILE = "main_chat.json"
@@ -62,7 +63,6 @@ def clear_today_messages():
     save_messages(data)
 
 def group_messages_by_thread(messages):
-    """Группируем сообщения по веткам"""
     grouped = {}
     for m in messages:
         thread = m.get("thread_name", "Основной чат")
@@ -77,7 +77,6 @@ def analyze_with_openai(messages):
 
     grouped = group_messages_by_thread(messages)
 
-    # Формируем промпт с разбивкой по веткам
     sections = []
     for thread_name, msgs in grouped.items():
         chat_log = "\n".join(f"[{m['time']}] {m['user']}: {m['text']}" for m in msgs)
@@ -115,6 +114,15 @@ def analyze_with_openai(messages):
     )
     return response.choices[0].message.content
 
+async def handle_forum_topic_created(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Автоматически сохраняем название ветки при её создании"""
+    msg = update.message
+    if msg and msg.forum_topic_created and msg.message_thread_id:
+        thread_id = msg.message_thread_id
+        thread_name = msg.forum_topic_created.name
+        context.chat_data[f"thread_{thread_id}"] = thread_name
+        logger.info(f"Сохранено название ветки: #{thread_id} = '{thread_name}'")
+
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     msg = update.message
     if not msg or not msg.text:
@@ -124,8 +132,30 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     thread_id = msg.message_thread_id
 
     if thread_id:
-        # Пытаемся получить название ветки
-        thread_name = context.chat_data.get(f"thread_{thread_id}", f"Ветка #{thread_id}")
+        # Берём сохранённое название ветки
+        thread_name = context.chat_data.get(f"thread_{thread_id}")
+
+        # Если не сохранено — пробуем получить из самого сообщения
+        if not thread_name:
+            try:
+                if msg.forum_topic_created:
+                    thread_name = msg.forum_topic_created.name
+                    context.chat_data[f"thread_{thread_id}"] = thread_name
+            except Exception:
+                pass
+
+        if not thread_name:
+            try:
+                if msg.reply_to_message and msg.reply_to_message.forum_topic_created:
+                    thread_name = msg.reply_to_message.forum_topic_created.name
+                    context.chat_data[f"thread_{thread_id}"] = thread_name
+            except Exception:
+                pass
+
+        # Если всё равно не нашли — оставляем номер
+        if not thread_name:
+            thread_name = f"Ветка #{thread_id}"
+
         source = f"ветка #{thread_id}"
     else:
         thread_name = "Основной чат"
@@ -135,7 +165,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     logger.info(f"Сообщение от {username} из [{thread_name}]: {msg.text[:50]}")
 
 async def cmd_namethred(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Дать название текущей ветке: /namethread Название"""
+    """Дать название текущей ветке вручную: /namethread Название"""
     msg = update.message
     thread_id = msg.message_thread_id
     if not thread_id:
@@ -162,7 +192,7 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "Привет! Собираю сообщения из всех веток и присылаю отчёт по каждой.\n\n"
         "/setmain — сделать этот чат главным для отчётов\n"
-        "/namethread Название — дать имя текущей ветке\n"
+        "/namethread Название — дать имя текущей ветке вручную\n"
         "/report — отчёт прямо сейчас\n"
         "/count — сколько сообщений собрано\n"
         "/getid — узнать ID этого чата"
@@ -224,6 +254,10 @@ def main():
     app.add_handler(CommandHandler("report", cmd_report))
     app.add_handler(CommandHandler("count", cmd_count))
     app.add_handler(CommandHandler("namethread", cmd_namethred))
+
+    # Автоматически ловим создание новых веток форума
+    app.add_handler(MessageHandler(filters.StatusUpdate.FORUM_TOPIC_CREATED, handle_forum_topic_created))
+
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
     job_queue = app.job_queue
