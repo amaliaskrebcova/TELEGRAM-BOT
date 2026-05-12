@@ -1,4 +1,5 @@
 import logging
+import datetime
 import json
 from datetime import datetime, date
 from pathlib import Path
@@ -113,13 +114,18 @@ async def scheduled_report(app):
 
 def main():
     app = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
+
     app.add_handler(CommandHandler("start", cmd_start))
     app.add_handler(CommandHandler("report", cmd_report))
     app.add_handler(CommandHandler("count", cmd_count))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
-    scheduler = AsyncIOScheduler()
-    scheduler.add_job(scheduled_report, trigger="cron", hour=REPORT_HOUR, minute=REPORT_MINUTE, args=[app])
-    scheduler.start()
+
+    job_queue = app.job_queue
+    job_queue.run_daily(
+        scheduled_report,
+        time=datetime.time(hour=REPORT_HOUR, minute=REPORT_MINUTE),
+    )
+
     logger.info("Бот запущен!")
     app.run_polling(allowed_updates=["message"])
 
