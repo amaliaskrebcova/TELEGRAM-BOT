@@ -1,7 +1,8 @@
 import os
 import logging
 import json
-from datetime import datetime, date, time
+import pytz
+from datetime import datetime, date, time, timedelta
 from pathlib import Path
 from telegram import Update
 from telegram.ext import Application, MessageHandler, CommandHandler, ContextTypes, filters
@@ -10,9 +11,10 @@ from openai import OpenAI
 TELEGRAM_BOT_TOKEN = "8670898275:AAG06HceWzHxJk2JYdS4WmsbydJ-m5ZtR6U"
 OPENAI_API_KEY = "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"
 REPORT_HOUR = 23
-REPORT_MINUTE = 00
+REPORT_MINUTE = 59
 MAIN_CHAT_FILE = "main_chat.json"
 MESSAGES_FILE = "daily_messages.json"
+MOSCOW_TZ = pytz.timezone("Europe/Moscow")
 
 logging.basicConfig(format="%(asctime)s | %(levelname)s | %(message)s", level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -39,11 +41,13 @@ def save_messages(data):
 
 def add_message(username, text, source="основной чат", thread_name=None):
     data = load_messages()
-    today = str(date.today())
+    # Используем московское время для даты
+    moscow_now = datetime.now(MOSCOW_TZ)
+    today = str(moscow_now.date())
     if today not in data:
         data[today] = []
     data[today].append({
-        "time": datetime.now().strftime("%H:%M"),
+        "time": moscow_now.strftime("%H:%M"),
         "user": username,
         "text": text,
         "source": source,
@@ -51,15 +55,23 @@ def add_message(username, text, source="основной чат", thread_name=No
     })
     save_messages(data)
 
-def get_today_messages():
+def get_messages_for_date(target_date: date):
     data = load_messages()
-    return data.get(str(date.today()), [])
+    return data.get(str(target_date), [])
+
+def get_today_messages():
+    moscow_today = datetime.now(MOSCOW_TZ).date()
+    return get_messages_for_date(moscow_today)
+
+def get_yesterday_messages():
+    moscow_yesterday = (datetime.now(MOSCOW_TZ) - timedelta(days=1)).date()
+    return get_messages_for_date(moscow_yesterday)
 
 def clear_today_messages():
     data = load_messages()
-    today = str(date.today())
-    if today in data:
-        del data[today]
+    moscow_today = str(datetime.now(MOSCOW_TZ).date())
+    if moscow_today in data:
+        del data[moscow_today]
     save_messages(data)
 
 def group_messages_by_thread(messages):
@@ -71,9 +83,9 @@ def group_messages_by_thread(messages):
         grouped[thread].append(m)
     return grouped
 
-def analyze_with_openai(messages):
+def analyze_with_openai(messages, label="сегодня"):
     if not messages:
-        return "Сегодня сообщений не было."
+        return f"За {'сегодня' if label == 'сегодня' else label} сообщений не было."
 
     grouped = group_messages_by_thread(messages)
 
@@ -132,10 +144,8 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     thread_id = msg.message_thread_id
 
     if thread_id:
-        # Берём сохранённое название ветки
         thread_name = context.chat_data.get(f"thread_{thread_id}")
 
-        # Если не сохранено — пробуем получить из самого сообщения
         if not thread_name:
             try:
                 if msg.forum_topic_created:
@@ -152,7 +162,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             except Exception:
                 pass
 
-        # Если всё равно не нашли — оставляем номер
         if not thread_name:
             thread_name = f"Ветка #{thread_id}"
 
@@ -165,7 +174,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     logger.info(f"Сообщение от {username} из [{thread_name}]: {msg.text[:50]}")
 
 async def cmd_namethred(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Дать название текущей ветке вручную: /namethread Название"""
     msg = update.message
     thread_id = msg.message_thread_id
     if not thread_id:
@@ -193,7 +201,8 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "Привет! Собираю сообщения из всех веток и присылаю отчёт по каждой.\n\n"
         "/setmain — сделать этот чат главным для отчётов\n"
         "/namethread Название — дать имя текущей ветке вручную\n"
-        "/report — отчёт прямо сейчас\n"
+        "/report — отчёт за сегодня прямо сейчас\n"
+        "/yesterday — отчёт за вчерашний день\n"
         "/count — сколько сообщений собрано\n"
         "/getid — узнать ID этого чата"
     )
@@ -209,23 +218,37 @@ async def cmd_getid(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def cmd_report(update: Update, context: ContextTypes.DEFAULT_TYPE):
     main_chat = load_main_chat()
-    await update.message.reply_text("Анализирую все ветки...")
+    await update.message.reply_text("Анализирую все ветки за сегодня...")
     messages = get_today_messages()
     report = analyze_with_openai(messages)
-    today = date.today().strftime("%d.%m.%Y")
+    today = datetime.now(MOSCOW_TZ).date().strftime("%d.%m.%Y")
     target = main_chat if main_chat else update.message.chat.id
     await context.bot.send_message(
         chat_id=target,
         text=f"📊 Отчёт за {today}\n\n{report}"
     )
 
+async def cmd_yesterday(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Ручной отчёт за вчерашний день"""
+    main_chat = load_main_chat()
+    await update.message.reply_text("Анализирую все ветки за вчера...")
+    messages = get_yesterday_messages()
+    report = analyze_with_openai(messages, label="вчера")
+    yesterday = (datetime.now(MOSCOW_TZ) - timedelta(days=1)).date().strftime("%d.%m.%Y")
+    target = main_chat if main_chat else update.message.chat.id
+    await context.bot.send_message(
+        chat_id=target,
+        text=f"📊 Отчёт за {yesterday} (вчера)\n\n{report}"
+    )
+
 async def cmd_count(update: Update, context: ContextTypes.DEFAULT_TYPE):
     messages = get_today_messages()
     grouped = group_messages_by_thread(messages)
     main_chat = load_main_chat()
+    moscow_now = datetime.now(MOSCOW_TZ)
     status = "✅ Основной чат установлен" if main_chat else "⚠️ Основной чат не установлен — используй /setmain"
 
-    lines = [f"📨 Сообщений за сегодня: {len(messages)}\n{status}\n"]
+    lines = [f"📨 Сообщений за сегодня ({moscow_now.strftime('%d.%m.%Y')}): {len(messages)}\n{status}\n"]
     for thread, msgs in grouped.items():
         lines.append(f"• {thread}: {len(msgs)} сообщ.")
 
@@ -238,7 +261,7 @@ async def scheduled_report(context: ContextTypes.DEFAULT_TYPE):
         return
     messages = get_today_messages()
     report = analyze_with_openai(messages)
-    today = date.today().strftime("%d.%m.%Y")
+    today = datetime.now(MOSCOW_TZ).date().strftime("%d.%m.%Y")
     await context.bot.send_message(
         chat_id=chat_id,
         text=f"📊 Ежедневный отчёт — {today}\n\n{report}"
@@ -252,18 +275,17 @@ def main():
     app.add_handler(CommandHandler("setmain", cmd_setmain))
     app.add_handler(CommandHandler("getid", cmd_getid))
     app.add_handler(CommandHandler("report", cmd_report))
+    app.add_handler(CommandHandler("yesterday", cmd_yesterday))
     app.add_handler(CommandHandler("count", cmd_count))
     app.add_handler(CommandHandler("namethread", cmd_namethred))
 
-    # Автоматически ловим создание новых веток форума
     app.add_handler(MessageHandler(filters.StatusUpdate.FORUM_TOPIC_CREATED, handle_forum_topic_created))
-
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
     job_queue = app.job_queue
     job_queue.run_daily(
         scheduled_report,
-        time=time(hour=REPORT_HOUR, minute=REPORT_MINUTE, second=0),
+        time=time(hour=REPORT_HOUR, minute=REPORT_MINUTE, second=0, tzinfo=MOSCOW_TZ),
     )
 
     logger.info("Бот запущен! Слушаю все ветки.")
