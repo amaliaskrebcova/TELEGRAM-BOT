@@ -257,6 +257,8 @@ async def scheduled_report(context: ContextTypes.DEFAULT_TYPE):
 
 def main():
     requests.get(f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/deleteWebhook?drop_pending_updates=true")
+    import time as time_module
+    time_module.sleep(3)
     app = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
 
     app.add_handler(CommandHandler("start", cmd_start))
