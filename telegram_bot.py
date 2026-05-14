@@ -269,7 +269,9 @@ async def scheduled_report(context: ContextTypes.DEFAULT_TYPE):
     clear_today_messages()
 
 def main():
-    app = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
+   import requests
+requests.get(f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/deleteWebhook?drop_pending_updates=true")
+app = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
 
     app.add_handler(CommandHandler("start", cmd_start))
     app.add_handler(CommandHandler("setmain", cmd_setmain))
