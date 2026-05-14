@@ -9,7 +9,7 @@ from telegram import Update
 from telegram.ext import Application, MessageHandler, CommandHandler, ContextTypes, filters
 from openai import OpenAI
 
-TELEGRAM_BOT_TOKEN = "8670898275:AAG06HceWzHxJk2JYdS4WmsbydJ-m5ZtR6U"
+TELEGRAM_BOT_TOKEN = "8670898275:AAH3_pcRX_co_Jj-tBM17NKSdgpDlMM32XA"
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 REPORT_HOUR = 23
 REPORT_MINUTE = 59
