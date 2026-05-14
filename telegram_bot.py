@@ -10,11 +10,8 @@ from openai import OpenAI
 
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "8670898275:AAHfyaQ2ifFQlmaen7SNHhuI1IqKEf8WM5I")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-WEBHOOK_URL = os.getenv("WEBHOOK_URL")  # например: https://ваш-сервис.railway.app
-PORT = int(os.getenv("PORT", 8080))
-
-REPORT_HOUR = 17
-REPORT_MINUTE = 55
+REPORT_HOUR = 18
+REPORT_MINUTE = 10
 MAIN_CHAT_FILE = "main_chat.json"
 MESSAGES_FILE = "daily_messages.json"
 MOSCOW_TZ = pytz.timezone("Europe/Moscow")
@@ -86,15 +83,12 @@ def group_messages_by_thread(messages):
 def analyze_with_openai(messages, label="сегодня"):
     if not messages:
         return f"За {label} сообщений не было."
-
     grouped = group_messages_by_thread(messages)
     sections = []
     for thread_name, msgs in grouped.items():
         chat_log = "\n".join(f"[{m['time']}] {m['user']}: {m['text']}" for m in msgs)
         sections.append(f"=== {thread_name} ===\n{chat_log}")
-
     full_log = "\n\n".join(sections)
-
     prompt = f"""Ты помощник который пишет короткие итоги рабочего чата.
 
 ПЕРЕПИСКА (разбита по веткам):
@@ -113,7 +107,6 @@ def analyze_with_openai(messages, label="сегодня"):
 - В конце общий вывод по всему дню если есть что добавить
 
 Отвечай на русском."""
-
     client = OpenAI(api_key=OPENAI_API_KEY)
     response = client.chat.completions.create(
         model="gpt-4o-mini",
@@ -131,16 +124,13 @@ async def handle_forum_topic_created(update: Update, context: ContextTypes.DEFAU
         thread_id = msg.message_thread_id
         thread_name = msg.forum_topic_created.name
         context.chat_data[f"thread_{thread_id}"] = thread_name
-        logger.info(f"Сохранено название ветки: #{thread_id} = '{thread_name}'")
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     msg = update.message
     if not msg or not msg.text:
         return
-
     username = msg.from_user.username or msg.from_user.first_name or "Неизвестный"
     thread_id = msg.message_thread_id
-
     if thread_id:
         thread_name = context.chat_data.get(f"thread_{thread_id}")
         if not thread_name:
@@ -163,9 +153,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         thread_name = "Основной чат"
         source = "основной чат"
-
     add_message(username, msg.text, source=source, thread_name=thread_name)
-    logger.info(f"Сообщение от {username} из [{thread_name}]: {msg.text[:50]}")
 
 async def cmd_namethred(update: Update, context: ContextTypes.DEFAULT_TYPE):
     msg = update.message
@@ -192,7 +180,7 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "Привет! Собираю сообщения из всех веток и присылаю отчёт по каждой.\n\n"
         "/setmain — сделать этот чат главным для отчётов\n"
-        "/namethread Название — дать имя текущей ветке вручную\n"
+        "/namethread Название — дать имя текущей ветке\n"
         "/report — отчёт за сегодня\n"
         "/yesterday — отчёт за вчерашний день\n"
         "/count — сколько сообщений собрано\n"
@@ -269,12 +257,10 @@ def main():
         time=time(hour=REPORT_HOUR, minute=REPORT_MINUTE, second=0, tzinfo=MOSCOW_TZ),
     )
 
-    logger.info("Бот запущен через webhook!")
-    app.run_webhook(
-        listen="0.0.0.0",
-        port=PORT,
-        webhook_url=WEBHOOK_URL,
-    )
+    logger.info("Бот запущен!")
+    app.run_polling(allowed_updates=["message"], drop_pending_updates=True)
 
+if __name__ == "__main__":
+    main()
 if __name__ == "__main__":
     main()
