@@ -1,3 +1,4 @@
+import requests
 import os
 import logging
 import json
@@ -10,8 +11,8 @@ from openai import OpenAI
 
 TELEGRAM_BOT_TOKEN = "8670898275:AAG06HceWzHxJk2JYdS4WmsbydJ-m5ZtR6U"
 OPENAI_API_KEY = "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"
-REPORT_HOUR = 10
-REPORT_MINUTE = 45
+REPORT_HOUR = 13
+REPORT_MINUTE = 00
 MAIN_CHAT_FILE = "main_chat.json"
 MESSAGES_FILE = "daily_messages.json"
 MOSCOW_TZ = pytz.timezone("Europe/Moscow")
@@ -269,10 +270,6 @@ async def scheduled_report(context: ContextTypes.DEFAULT_TYPE):
     clear_today_messages()
 
 def main():
-    import requests
-    requests.get(f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/deleteWebhook?drop_pending_updates=true")
-    app = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
-
     app.add_handler(CommandHandler("start", cmd_start))
     app.add_handler(CommandHandler("setmain", cmd_setmain))
     app.add_handler(CommandHandler("getid", cmd_getid))
