@@ -2,15 +2,17 @@ import os
 import logging
 import json
 import pytz
-import requests
 from datetime import datetime, date, time, timedelta
 from pathlib import Path
 from telegram import Update
 from telegram.ext import Application, MessageHandler, CommandHandler, ContextTypes, filters
 from openai import OpenAI
 
-TELEGRAM_BOT_TOKEN = "8670898275:AAHfyaQ2ifFQlmaen7SNHhuI1IqKEf8WM5I"
+TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "8670898275:AAHfyaQ2ifFQlmaen7SNHhuI1IqKEf8WM5I")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+WEBHOOK_URL = os.getenv("WEBHOOK_URL")  # например: https://ваш-сервис.railway.app
+PORT = int(os.getenv("PORT", 8080))
+
 REPORT_HOUR = 23
 REPORT_MINUTE = 59
 MAIN_CHAT_FILE = "main_chat.json"
@@ -141,7 +143,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if thread_id:
         thread_name = context.chat_data.get(f"thread_{thread_id}")
-
         if not thread_name:
             try:
                 if msg.forum_topic_created:
@@ -149,7 +150,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     context.chat_data[f"thread_{thread_id}"] = thread_name
             except Exception:
                 pass
-
         if not thread_name:
             try:
                 if msg.reply_to_message and msg.reply_to_message.forum_topic_created:
@@ -157,10 +157,8 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     context.chat_data[f"thread_{thread_id}"] = thread_name
             except Exception:
                 pass
-
         if not thread_name:
             thread_name = f"Ветка #{thread_id}"
-
         source = f"ветка #{thread_id}"
     else:
         thread_name = "Основной чат"
@@ -185,10 +183,8 @@ async def cmd_namethred(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def cmd_setmain(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.message.chat.id
     save_main_chat(chat_id)
-    logger.info(f"Основной чат установлен: {chat_id}")
     await update.message.reply_text(
-        f"✅ Этот чат установлен как основной для отчётов.\n"
-        f"ID: `{chat_id}`",
+        f"✅ Этот чат установлен как основной для отчётов.\nID: `{chat_id}`",
         parse_mode="Markdown"
     )
 
@@ -197,7 +193,7 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "Привет! Собираю сообщения из всех веток и присылаю отчёт по каждой.\n\n"
         "/setmain — сделать этот чат главным для отчётов\n"
         "/namethread Название — дать имя текущей ветке вручную\n"
-        "/report — отчёт за сегодня прямо сейчас\n"
+        "/report — отчёт за сегодня\n"
         "/yesterday — отчёт за вчерашний день\n"
         "/count — сколько сообщений собрано\n"
         "/getid — узнать ID этого чата"
@@ -207,8 +203,7 @@ async def cmd_getid(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.message.chat.id
     thread_id = update.message.message_thread_id
     await update.message.reply_text(
-        f"Chat ID: `{chat_id}`\n"
-        f"Thread ID: `{thread_id or 'основной чат'}`",
+        f"Chat ID: `{chat_id}`\nThread ID: `{thread_id or 'основной чат'}`",
         parse_mode="Markdown"
     )
 
@@ -256,9 +251,6 @@ async def scheduled_report(context: ContextTypes.DEFAULT_TYPE):
     clear_today_messages()
 
 def main():
-    requests.get(f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/deleteWebhook?drop_pending_updates=true")
-    import time as time_module
-    time_module.sleep(3)
     app = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
 
     app.add_handler(CommandHandler("start", cmd_start))
@@ -268,7 +260,6 @@ def main():
     app.add_handler(CommandHandler("yesterday", cmd_yesterday))
     app.add_handler(CommandHandler("count", cmd_count))
     app.add_handler(CommandHandler("namethread", cmd_namethred))
-
     app.add_handler(MessageHandler(filters.StatusUpdate.FORUM_TOPIC_CREATED, handle_forum_topic_created))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
@@ -278,8 +269,12 @@ def main():
         time=time(hour=REPORT_HOUR, minute=REPORT_MINUTE, second=0, tzinfo=MOSCOW_TZ),
     )
 
-    logger.info("Бот запущен! Слушаю все ветки.")
-    app.run_polling(allowed_updates=["message"])
+    logger.info("Бот запущен через webhook!")
+    app.run_webhook(
+        listen="0.0.0.0",
+        port=PORT,
+        webhook_url=WEBHOOK_URL,
+    )
 
 if __name__ == "__main__":
     main()
