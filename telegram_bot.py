@@ -13,8 +13,8 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 WEBHOOK_URL = os.getenv("WEBHOOK_URL")  # например: https://ваш-сервис.railway.app
 PORT = int(os.getenv("PORT", 8080))
 
-REPORT_HOUR = 23
-REPORT_MINUTE = 59
+REPORT_HOUR = 17
+REPORT_MINUTE = 55
 MAIN_CHAT_FILE = "main_chat.json"
 MESSAGES_FILE = "daily_messages.json"
 MOSCOW_TZ = pytz.timezone("Europe/Moscow")
