@@ -9,7 +9,7 @@ from telegram.ext import Application, MessageHandler, CommandHandler, ContextTyp
 from openai import OpenAI
 
 TELEGRAM_BOT_TOKEN = "8670898275:AAHfyaQ2iFFQ1maen7SNHhuI1IgKF8WM51"
-DEEPSEEK_API_KEY = "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"
+DEEPSEEK_API_KEY = "sk-proj-x111Qyu5SNfTRGp4mpYiGjk1L7AO8WKfFavxSS8OBXraV_pnJBKvkUxWX94RhaSVRYvPwuJZvrZqT3BlbkFJOxeJ2ssg7t3g030ZUxMbvINty27_fmNtsZBXKLqkLzP1ilM-7EigQK9-MviKIzd2lZcTlsELYA"
 REPORT_HOUR = 13
 REPORT_MINUTE = 50
 MAIN_CHAT_FILE = "main_chat.json"
