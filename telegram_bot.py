@@ -8,13 +8,19 @@ from telegram import Update
 from telegram.ext import Application, MessageHandler, CommandHandler, ContextTypes, filters
 from openai import OpenAI
 
-TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "8670898275:AAHfyaQ2ifFQlmaen7SNHhuI1IqKEf8WM5I")
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+TELEGRAM_BOT_TOKEN = "8670898275:AAHfyaQ2iFFQ1maen7SNHhuI1IgKF8WM51"
+DEEPSEEK_API_KEY = "sk-0dc422b6ae3948f19e497e5b31f1c134444"
 REPORT_HOUR = 23
 REPORT_MINUTE = 59
 MAIN_CHAT_FILE = "main_chat.json"
 MESSAGES_FILE = "daily_messages.json"
 MOSCOW_TZ = pytz.timezone("Europe/Moscow")
+
+# Создаём клиент DeepSeek
+client = OpenAI(
+    api_key=DEEPSEEK_API_KEY,
+    base_url="https://api.deepseek.com/v1"
+)
 
 logging.basicConfig(format="%(asctime)s | %(levelname)s | %(message)s", level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -107,9 +113,9 @@ def analyze_with_openai(messages, label="сегодня"):
 - В конце общий вывод по всему дню если есть что добавить
 
 Отвечай на русском."""
-    client = OpenAI(api_key=OPENAI_API_KEY)
+    
     response = client.chat.completions.create(
-        model="gpt-4o-mini",
+        model="deepseek-chat",
         max_tokens=1500,
         messages=[
             {"role": "system", "content": "Ты аналитик переговоров."},
@@ -155,7 +161,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         source = "основной чат"
     add_message(username, msg.text, source=source, thread_name=thread_name)
 
-async def cmd_namethred(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def cmd_namethread(update: Update, context: ContextTypes.DEFAULT_TYPE):
     msg = update.message
     thread_id = msg.message_thread_id
     if not thread_id:
@@ -247,7 +253,7 @@ def main():
     app.add_handler(CommandHandler("report", cmd_report))
     app.add_handler(CommandHandler("yesterday", cmd_yesterday))
     app.add_handler(CommandHandler("count", cmd_count))
-    app.add_handler(CommandHandler("namethread", cmd_namethred))
+    app.add_handler(CommandHandler("namethread", cmd_namethread))
     app.add_handler(MessageHandler(filters.StatusUpdate.FORUM_TOPIC_CREATED, handle_forum_topic_created))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
@@ -260,7 +266,5 @@ def main():
     logger.info("Бот запущен!")
     app.run_polling(allowed_updates=["message"], drop_pending_updates=True)
 
-if __name__ == "__main__":
-    main()
 if __name__ == "__main__":
     main()
