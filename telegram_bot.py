@@ -10,8 +10,8 @@ from openai import OpenAI
 
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "8670898275:AAHfyaQ2ifFQlmaen7SNHhuI1IqKEf8WM5I")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-REPORT_HOUR = 20
-REPORT_MINUTE =25
+REPORT_HOUR = 12
+REPORT_MINUTE =06
 MAIN_CHAT_FILE = "main_chat.json"
 MESSAGES_FILE = "daily_messages.json"
 MOSCOW_TZ = pytz.timezone("Europe/Moscow")
