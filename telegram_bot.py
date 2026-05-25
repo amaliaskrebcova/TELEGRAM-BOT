@@ -10,7 +10,7 @@ from openai import OpenAI
 
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "8670898275:AAHfyaQ2ifFQlmaen7SNHhuI1IqKEf8WM5I")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-REPORT_HOUR = 21
+REPORT_HOUR = 23
 REPORT_MINUTE =20
 MAIN_CHAT_FILE = "main_chat.json"
 MESSAGES_FILE = "daily_messages.json"
